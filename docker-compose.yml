@@ -1,0 +1,84 @@
+version: '3'
+
+networks:
+  backend:
+
+services:
+  site:
+    image: nginx:stable-alpine
+    container_name: ${PROJECT_NAME}-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./wordpress:/var/www/html
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+      - mysql
+      - phpmyadmin
+      - redis
+    networks:
+      - backend
+
+  mysql:
+    image: mysql:5.7.29
+    container_name: ${PROJECT_NAME}-mysql
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    networks:
+      - backend
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+  
+      ### php ###########################################
+  php:
+    build: 
+      args:
+        user: dockpress
+        uid: 1000
+      context: ./php-fpm
+    container_name: ${PROJECT_NAME}-php
+    volumes:
+      - ./wordpress:/var/www/html
+    ports:
+      - "9001:9001"
+    networks:
+      - backend
+
+  ### phpMyAdmin ###########################################
+  phpmyadmin:
+    build: ./phpmyadmin
+    container_name: ${PROJECT_NAME}-pma
+    environment:
+      - PMA_ARBITRARY=1
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "8081:80"
+    depends_on:
+      - mysql
+    networks:
+      - backend
+
+  ### Redis ################################################
+  redis:
+    build: ./redis
+    container_name: ${PROJECT_NAME}-redis
+    volumes:
+      - ./data/redis:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+
+  
